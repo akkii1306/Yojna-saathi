@@ -1,47 +1,49 @@
 // backend/src/controllers/schemeController.js
-const Scheme = require('../models/Scheme');
+const Scheme = require("../models/Scheme");
 
-// Create scheme
 exports.createScheme = async (req, res) => {
   try {
     const scheme = await Scheme.create(req.body);
     return res.status(201).json(scheme);
   } catch (err) {
-    return res.status(500).json({ message: "Error creating scheme" });
+    console.error("Create scheme error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
-// Get all schemes
 exports.getAllSchemes = async (req, res) => {
   try {
     const schemes = await Scheme.find().sort({ createdAt: -1 });
     return res.json(schemes);
   } catch (err) {
-    return res.status(500).json({ message: "Error fetching schemes" });
+    console.error("Get schemes error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
-// Smart Recommendation (basic filter; Gemini added later)
+// New: basic recommendation using profile filters
 exports.recommendSchemes = async (req, res) => {
   try {
-    const { age, occupation, gender, state, category, disability, income } = req.body;
+    const { state, occupation, gender, category } = req.body || {};
 
-    const filters = {};
+    const query = {};
 
-    if (state) filters.state = { $in: ["All", state] };
-    if (category) filters.category = category;
-    if (occupation) filters.occupation = occupation;
-    if (gender) filters.gender = { $in: ["All", gender] };
+    if (state && state !== "All") {
+      query.state = { $in: ["All", state] };
+    }
 
-    const schemes = await Scheme.find(filters);
+    if (occupation) {
+      // if you store schemes with category = "farmer", "student", etc.
+      query.category = occupation.toLowerCase();
+    }
 
-    return res.json({
-      userInput: req.body,
-      matched: schemes,
-      count: schemes.length
-    });
+    // You can add more conditions here based on how you store scheme data
+
+    const schemes = await Scheme.find(query);
+
+    return res.json(schemes);
   } catch (err) {
-    console.log(err);
-    return res.status(500).json({ message: "Recommendation error" });
+    console.error("Recommend error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };

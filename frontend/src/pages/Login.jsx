@@ -5,49 +5,53 @@ import { useNavigate } from "react-router-dom";
 const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
+
   const [form, setForm] = useState({ email: "", password: "" });
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
+  try {
     await login(form.email, form.password);
-    navigate("/dashboard");
-  };
+    navigate("/dashboard");   // ✔ correct path
+  } catch (err) {
+    alert(err.response?.data?.message || "Error logging in");
+  }
+};
 
   return (
-    <div className="flex justify-center mt-16">
-      <form
-        onSubmit={handleSubmit}
-        className="w-96 bg-white shadow-lg p-8 rounded-lg"
-      >
-        <h2 className="text-2xl font-bold text-center mb-6">Login</h2>
+    <div className="flex items-center justify-center min-h-screen bg-slate-100">
+      <div className="w-full max-w-md bg-white p-6 rounded-xl shadow-md border">
+        <h2 className="text-xl font-semibold text-slate-800 mb-4">Login</h2>
 
-        <input
-          className="w-full px-4 py-2 border rounded mb-4"
-          placeholder="Email"
-          name="email"
-          type="email"
-          value={form.email}
-          onChange={handleChange}
-          required
-        />
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            name="email"
+            placeholder="Email"
+            type="email"
+            value={form.email}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500"
+            required
+          />
 
-        <input
-          className="w-full px-4 py-2 border rounded mb-4"
-          placeholder="Password"
-          name="password"
-          type="password"
-          value={form.password}
-          onChange={handleChange}
-          required
-        />
+          <input
+            name="password"
+            placeholder="Password"
+            type="password"
+            value={form.password}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500"
+            required
+          />
 
-        <button className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
-          Login
-        </button>
-      </form>
+          <button className="w-full py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+            Login
+          </button>
+        </form>
+      </div>
     </div>
   );
 };

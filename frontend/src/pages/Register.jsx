@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
 const Register = () => {
-  const { register } = useAuth();
+  const { registerUser } = useAuth();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -18,56 +18,62 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await register(form);
-    navigate("/dashboard");
+    try {
+      await registerUser(form);
+      navigate("/dashboard");
+    } catch (err) {
+      alert(err.response?.data?.message || "Error registering");
+    }
   };
 
   return (
-    <div className="flex justify-center mt-16">
-      <form className="w-96 bg-white shadow-lg p-8 rounded-lg" onSubmit={handleSubmit}>
-        <h2 className="text-2xl font-bold text-center mb-6">Register</h2>
+    <div className="flex items-center justify-center min-h-screen bg-slate-100">
+      <div className="w-full max-w-md bg-white p-6 rounded-xl shadow-md border">
+        <h2 className="text-xl font-semibold text-slate-800 mb-4">Create Account</h2>
 
-        <input
-          className="w-full px-4 py-2 border rounded mb-4"
-          placeholder="Full Name"
-          name="name"
-          value={form.name}
-          onChange={handleChange}
-          required
-        />
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            name="name"
+            placeholder="Full Name"
+            value={form.name}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500"
+            required
+          />
 
-        <input
-          className="w-full px-4 py-2 border rounded mb-4"
-          placeholder="Email"
-          type="email"
-          name="email"
-          value={form.email}
-          onChange={handleChange}
-          required
-        />
+          <input
+            name="email"
+            placeholder="Email"
+            value={form.email}
+            type="email"
+            onChange={handleChange}
+            className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500"
+            required
+          />
 
-        <input
-          className="w-full px-4 py-2 border rounded mb-4"
-          placeholder="Password"
-          type="password"
-          name="password"
-          value={form.password}
-          onChange={handleChange}
-          required
-        />
+          <input
+            name="password"
+            placeholder="Password"
+            type="password"
+            value={form.password}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500"
+            required
+          />
 
-        <input
-          className="w-full px-4 py-2 border rounded mb-4"
-          placeholder="State"
-          name="state"
-          value={form.state}
-          onChange={handleChange}
-        />
+          <input
+            name="state"
+            placeholder="State"
+            value={form.state}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500"
+          />
 
-        <button className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
-          Create Account
-        </button>
-      </form>
+          <button className="w-full py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+            Register
+          </button>
+        </form>
+      </div>
     </div>
   );
 };

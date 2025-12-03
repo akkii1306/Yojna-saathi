@@ -1,37 +1,21 @@
-// backend/src/server.js
-const express = require('express');
-const dotenv = require('dotenv');
-const cors = require('cors');
-const connectDB = require('./config/db');
+const express = require("express");
+const cors = require("cors");
+const dotenv = require("dotenv");
+const connectDB = require("./config/db");
 
 dotenv.config();
-
-const app = express();
-
-// connect db
 connectDB();
 
-// middleware
+const app = express();
 app.use(express.json());
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL,
+    origin: "http://localhost:5173",
     credentials: true,
   })
 );
 
-// test route
-app.get('/', (req, res) => {
-  res.send('Smart Yojana Advisor API is running');
-});
+app.use("/api/auth", require("./routes/authRoutes"));
 
-// routes
-const authRoutes = require('./routes/authRoutes');
-const schemeRoutes = require('./routes/schemeRoutes');
-
-app.use('/api/auth', authRoutes);
-app.use('/api/schemes', schemeRoutes);
-
-// start server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(5000, () => console.log("Server running on port 5000"));
