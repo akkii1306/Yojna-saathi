@@ -4,13 +4,12 @@ const router = express.Router();
 const {
   createScheme,
   getAllSchemes,
-  recommendSchemes,
+  recommendSchemes
 } = require('../controllers/schemeController');
 const { protect } = require('../middleware/authMiddleware');
 
-// admin-only in future, for now just protected add:
 router.post('/', protect, createScheme);
 router.get('/', getAllSchemes);
-router.get('/recommend', recommendSchemes);
+router.post('/recommend', protect, recommendSchemes);
 
 module.exports = router;
