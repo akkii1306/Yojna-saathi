@@ -17,6 +17,9 @@ const Dashboard = () => {
 
   const [loading, setLoading] = useState(false);
   const [schemes, setSchemes] = useState([]);
+  const [saved, setSaved] = useState([]);
+  const [showSavedOnly, setShowSavedOnly] = useState(false);
+  const [filters, setFilters] = useState({ category: "", state: "" });
 
   // Load all schemes initially (optional)
   useEffect(() => {
@@ -32,6 +35,11 @@ const Dashboard = () => {
     fetchAll();
   }, []);
 
+  useEffect(() => {
+    const s = localStorage.getItem("saved_schemes");
+    if (s) setSaved(JSON.parse(s));
+  }, []);
+
   // Input Handler
   const handleChange = (e) => {
     setProfile((prev) => ({
@@ -39,6 +47,27 @@ const Dashboard = () => {
       [e.target.name]: e.target.value,
     }));
   };
+
+  const toggleSave = (schemeId) => {
+    setSaved((prev) => {
+      const exists = prev.includes(schemeId);
+      const next = exists ? prev.filter((id) => id !== schemeId) : [schemeId, ...prev];
+      localStorage.setItem("saved_schemes", JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const handleFilterChange = (e) => {
+    setFilters((p) => ({ ...p, [e.target.name]: e.target.value }));
+  };
+
+  const filteredSchemes = schemes.filter((rec) => {
+    // If showing saved only, skip others
+    if (showSavedOnly && !(saved.includes(rec.scheme?._id ?? rec._id))) return false;
+    if (filters.category && rec.scheme?.category && rec.scheme.category.toLowerCase() !== filters.category.toLowerCase()) return false;
+    if (filters.state && rec.scheme?.state && rec.scheme.state.toLowerCase() !== filters.state.toLowerCase()) return false;
+    return true;
+  });
 
   // Submit Handler → AI Recommendations
   const handleRecommend = async (e) => {
@@ -188,66 +217,56 @@ const Dashboard = () => {
 
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Recommended Schemes</h2>
-              <span className="text-xs text-slate-500">{schemes.length} result(s)</span>
+              <div className="flex items-center gap-3">
+                <div className="text-xs text-slate-500">{filteredSchemes.length} shown</div>
+                <button
+                  onClick={() => setShowSavedOnly((s) => !s)}
+                  className={`text-sm px-2 py-1 rounded ${showSavedOnly ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'}`}
+                >
+                  {showSavedOnly ? 'Showing saved' : 'Show saved'}
+                </button>
+              </div>
             </div>
 
-            {schemes.length === 0 ? (
-              <p className="text-sm text-slate-500">
-                No schemes found. Fill profile & click “Get Recommendations”.
-              </p>
+            {/* Filters */}
+            <div className="flex gap-2 items-center mb-4">
+              <select name="category" value={filters.category} onChange={handleFilterChange} className="rounded-md border px-2 py-1 text-sm">
+                <option value="">All categories</option>
+                <option value="farmer">Farmer</option>
+                <option value="student">Student</option>
+                <option value="general">General</option>
+                <option value="women">Women</option>
+              </select>
+              <input name="state" value={filters.state} onChange={handleFilterChange} placeholder="State filter" className="rounded-md border px-2 py-1 text-sm" />
+              <button onClick={() => setFilters({ category: '', state: '' })} className="text-sm text-slate-600">Clear</button>
+            </div>
+
+            {filteredSchemes.length === 0 ? (
+              <p className="text-sm text-slate-500">No schemes match your filters.</p>
             ) : (
               <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
-
-                {schemes.map((rec, index) => (
-                  <div
-                    key={index}
-                    className="border border-slate-200 p-4 rounded-lg hover:border-indigo-300 transition"
-                  >
-                    {/* Title */}
-                    <h3 className="text-base font-semibold text-slate-900 mb-1">
-                      {rec.scheme?.title || "Unknown Scheme"}
-                    </h3>
-
-                    {/* Reason */}
-                    {rec.match_reason && (
-                      <p className="text-sm text-green-700 font-medium mb-2">
-                        ✔ {rec.match_reason}
-                      </p>
-                    )}
-
-                    {/* Benefits */}
-                    {rec.benefits_summary && (
-                      <p className="text-sm text-slate-700 mb-1">
-                        <span className="font-semibold text-slate-900">
-                          Benefits:
-                        </span>{" "}
-                        {rec.benefits_summary}
-                      </p>
-                    )}
-
-                    {/* Documents */}
-                    {rec.required_documents_summary && (
-                      <p className="text-sm text-slate-700 mb-2">
-                        <span className="font-semibold text-slate-900">
-                          Documents:
-                        </span>{" "}
-                        {rec.required_documents_summary}
-                      </p>
-                    )}
-
-                    {/* Apply Link */}
-                    {rec.scheme?.applyLink && (
-                      <a
-                        href={rec.scheme.applyLink}
-                        target="_blank"
-                        className="text-indigo-600 text-sm underline hover:text-indigo-800"
-                      >
-                        Apply Now
-                      </a>
-                    )}
-                  </div>
-                ))}
-
+                {filteredSchemes.map((rec, index) => {
+                  const scheme = rec.scheme || rec;
+                  const id = scheme._id || scheme.id || index;
+                  const isSaved = saved.includes(id);
+                  return (
+                    <div key={id} className="border border-slate-200 p-4 rounded-lg hover:border-indigo-300 transition flex justify-between">
+                      <div>
+                        <h3 className="text-base font-semibold text-slate-900 mb-1">{scheme.title || 'Unknown Scheme'}</h3>
+                        {rec.match_reason && <p className="text-sm text-green-700 font-medium mb-2">✔ {rec.match_reason}</p>}
+                        {scheme.benefits && <p className="text-sm text-slate-700 mb-1"><span className="font-semibold">Benefits:</span> {scheme.benefits}</p>}
+                        {scheme.documents && scheme.documents.length > 0 && <p className="text-sm text-slate-700 mb-2"><span className="font-semibold">Documents:</span> {scheme.documents.join(', ')}</p>}
+                        {scheme.applyLink && <a href={scheme.applyLink} target="_blank" className="text-indigo-600 text-sm underline hover:text-indigo-800">Apply Now</a>}
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <button onClick={() => toggleSave(id)} className={`px-3 py-1 rounded text-sm ${isSaved ? 'bg-yellow-400 text-slate-900' : 'bg-slate-100 text-slate-700'}`}>
+                          {isSaved ? 'Saved' : 'Save'}
+                        </button>
+                        <div className="text-xs text-slate-500">{scheme.state || 'All'} • {scheme.category || 'General'}</div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
