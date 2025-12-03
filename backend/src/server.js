@@ -17,5 +17,7 @@ app.use(
 );
 
 app.use("/api/auth", require("./routes/authRoutes"));
+// Mount scheme routes
+app.use("/api/schemes", require("./routes/schemeRoutes"));
 
 app.listen(5000, () => console.log("Server running on port 5000"));
