@@ -1,5 +1,5 @@
 // backend/src/models/Scheme.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const schemeSchema = new mongoose.Schema(
   {
@@ -18,4 +18,4 @@ const schemeSchema = new mongoose.Schema(
 
 const Scheme = mongoose.model('Scheme', schemeSchema);
 
-module.exports = Scheme;
+export default Scheme;

@@ -1,4 +1,4 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Prefer Application Default Credentials (service account via GOOGLE_APPLICATION_CREDENTIALS)
 // Fallback to GEMINI_API_KEY if ADC is not configured. Model can be overridden via GEMINI_MODEL.
@@ -30,4 +30,4 @@ if (genAI) {
   }
 }
 
-module.exports = { genAI, model };
+export { genAI, model };

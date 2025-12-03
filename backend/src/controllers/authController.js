@@ -1,17 +1,17 @@
 // backend/src/controllers/authController.js
 
-const jwt = require("jsonwebtoken");
-const User = require("../models/User");
+import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
 
 // Generate JWT token
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: "7d",
+    expiresIn: '7d',
   });
 };
 
 // REGISTER USER
-exports.registerUser = async (req, res) => {
+export const registerUser = async (req, res) => {
   try {
     const { name, email, password, state, profile } = req.body;
 
@@ -46,7 +46,7 @@ exports.registerUser = async (req, res) => {
 };
 
 // LOGIN USER
-exports.loginUser = async (req, res) => {
+export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -75,6 +75,8 @@ exports.loginUser = async (req, res) => {
 };
 
 // GET USER PROFILE
-exports.getMe = async (req, res) => {
+export const getMe = async (req, res) => {
   return res.json(req.user);
 };
+
+export default { registerUser, loginUser, getMe };

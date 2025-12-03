@@ -1,135 +1,151 @@
-// backend/src/controllers/schemeController.js
-const Scheme = require("../models/Scheme");
-const { model } = require("../utils/gemini");
-exports.createScheme = async (req, res) => {
+import Scheme from "../models/Scheme.js";
+import { model as geminiModel } from "../utils/gemini.js";
+
+export const createScheme = async (req, res) => {
   try {
     const scheme = await Scheme.create(req.body);
-    return res.status(201).json(scheme);
+    res.status(201).json(scheme);
   } catch (err) {
-    console.error("Create scheme error:", err);
-    return res.status(500).json({ message: "Server error" });
+    console.error("Create Scheme Error:", err);
+    res.status(500).json({ error: err.message });
   }
 };
 
-exports.getAllSchemes = async (req, res) => {
+export const getAllSchemes = async (req, res) => {
   try {
-    const schemes = await Scheme.find().sort({ createdAt: -1 });
-    return res.json(schemes);
+    const schemes = await Scheme.find({});
+    res.json(schemes);
   } catch (err) {
-    console.error("Get schemes error:", err);
-    return res.status(500).json({ message: "Server error" });
+    res.status(500).json({ error: err.message });
   }
 };
 
-// New: basic recommendation using profile filters
-exports.recommendSchemes = async (req, res) => {
+export const recommendSchemes = async (req, res) => {
   try {
     const userProfile = req.body;
 
-    // 1. Fetch ALL schemes from DB
     const allSchemes = await Scheme.find({});
+    if (!allSchemes.length) {
+      return res.status(400).json({ error: "No schemes available in database" });
+    }
 
-    // 2. Convert schemes to simple JSON for AI prompt
     const schemeData = allSchemes.map((s) => ({
-      id: s._id,
+      id: s._id.toString(),
       title: s.title,
       state: s.state,
       category: s.category,
       eligibility: s.eligibility,
       benefits: s.benefits,
       documents: s.documents,
+      applyLink: s.applyLink,
     }));
 
-    // 3.AI Prompt
     const prompt = `
-You are an AI government-scheme recommender for India.
-
-User Profile:
+Match schemes based on:
 ${JSON.stringify(userProfile, null, 2)}
 
-Schemes Database (JSON list):
+Available schemes:
 ${JSON.stringify(schemeData, null, 2)}
 
-TASK:
-1. Analyze user profile and scheme eligibility.
-2. Select the schemes the user is BEST eligible for.
-3. For each recommended scheme, provide:
-   - scheme_id
-   - match_reason
-   - benefits_summary
-   - required_documents_summary
-4. Output only JSON array.
-
-EXAMPLE OUTPUT FORMAT:
-[
-  {
-    "scheme_id": "656a8b7f82...",
-    "match_reason": "User is a farmer from Bihar...",
-    "benefits_summary": "Provides ₹6000 yearly...",
-    "required_documents_summary": "Aadhaar, bank passbook..."
-  }
-]
+Return JSON only.
 `;
 
-    // 4. Send to Gemini (if available) — fall back to simple filter if AI fails
-    let aiRecommendations;
-    try {
-      if (!process.env.GEMINI_API_KEY) {
-        throw new Error("Missing GEMINI_API_KEY - falling back to simple recommendations");
-      }
+    // If AI model isn't initialized (null) or fails, fall back to a deterministic rule-based recommender
+    let aiRecommendations = null;
 
-      const result = await model.generateContent(prompt);
-      const responseText = result.response.text();
-
-      // 5. Parse Gemini JSON safely
+    if (!geminiModel) {
+      console.warn('geminiModel is not initialized - using fallback recommender');
+    } else {
       try {
-        aiRecommendations = JSON.parse(responseText);
-      } catch (e) {
-        console.log("Gemini response parsing failed:", responseText);
-        throw new Error("AI parsing error");
+        const result = await geminiModel.generateContent(prompt);
+        let text = result.response.text().trim();
+        text = text.replace(/```json/g, "").replace(/```/g, "");
+
+        try {
+          aiRecommendations = JSON.parse(text);
+        } catch (e) {
+          console.warn('AI returned invalid JSON, will fallback:', e.message || e);
+        }
+      } catch (aiErr) {
+        console.error('AI call failed, falling back to rule-based recommender:', aiErr.message || aiErr);
       }
-    } catch (aiErr) {
-      // Log the AI error and perform a simple deterministic fallback
-      console.error("AI recommendation failed, using fallback. Reason:", aiErr.message || aiErr);
-      const simple = (allSchemes, profile) => {
-        // Basic scoring: +2 for same state, +1 for same category, +1 if income/category/disability match heuristics
-        const scores = allSchemes.map((s) => {
-          let score = 0;
-          try {
-            if (profile.state && s.state && profile.state.toLowerCase() === s.state.toLowerCase()) score += 2;
-            if (profile.category && s.category && profile.category.toLowerCase() === s.category.toLowerCase()) score += 1;
-            // simple age/income heuristics (if scheme has eligibility.age etc)
-            if (profile.age && s.eligibility && s.eligibility.age) {
-              const elig = s.eligibility.age; // could be string or object
-              // naive check: if elig contains profile.age as substring
-              if (typeof elig === 'string' && elig.includes(String(profile.age))) score += 1;
-            }
-            if (profile.disability && s.eligibility && String(s.eligibility.disability).toLowerCase() === 'true') score += 1;
-          } catch (e) {
-            // ignore
-          }
-          return { scheme: s, score };
-        });
-
-        scores.sort((a, b) => b.score - a.score);
-        return scores.slice(0, 10).map((s) => ({ scheme_id: s.scheme._id, match_reason: 'Fallback: rule-based match', score: s.score }));
-      };
-
-      aiRecommendations = simple(allSchemes, userProfile);
     }
 
-    // 6. Attach full scheme details (optional)
-    const finalOutput = aiRecommendations.map((rec) => {
-      const scheme = allSchemes.find((s) => s._id == rec.scheme_id);
-      return {
-        ...rec,
-        scheme,
+    // Fallback: stricter scoring and filtering if AI didn't produce recommendations
+    if (!aiRecommendations) {
+      const normalize = (v) => (v || "").toString().toLowerCase();
+
+      const extractNumbers = (text) => {
+        const m = (text || "").match(/(\d{1,3})/g);
+        return m ? m.map((n) => parseInt(n, 10)) : [];
       };
+
+      const scoreScheme = (s, profile) => {
+        let score = 0;
+        const title = normalize(s.title);
+        const desc = normalize(s.description || s.eligibility || "");
+        const category = normalize(s.category);
+        const state = normalize(s.state);
+
+        try {
+          // Strong match: same state
+          if (profile.state && state && profile.state.toLowerCase() === state) score += 5;
+
+          // Category is important
+          if (profile.category && category && profile.category.toLowerCase() === category) score += 3;
+
+          // Occupation appears in title/description
+          if (profile.occupation && (title.includes(profile.occupation.toLowerCase()) || desc.includes(profile.occupation.toLowerCase()))) score += 2;
+
+          // Gender keywords
+          if (profile.gender && desc.includes(profile.gender.toLowerCase())) score += 1;
+
+          // Disability match
+          if (profile.disability && desc.includes('disab')) score += 2;
+
+          // Age heuristics: if eligibility text contains a number and profile.age satisfies it
+          if (profile.age) {
+            const nums = extractNumbers(desc);
+            if (nums.length) {
+              // if any number <= profile.age, consider a partial match
+              if (nums.some((n) => profile.age >= n)) score += 1;
+            }
+          }
+
+          // Income keywords
+          if (profile.income && desc.includes(String(profile.income).toLowerCase())) score += 1;
+        } catch (e) {
+          // ignore
+        }
+
+        return score;
+      };
+
+      const scored = allSchemes.map((s) => ({ scheme: s, score: scoreScheme(s, userProfile) }));
+      scored.sort((a, b) => b.score - a.score);
+
+      // Only include schemes with meaningful score (>=3). If none, return top 3 as fallback but mark them.
+      const matches = scored.filter((x) => x.score >= 3);
+      if (matches.length) {
+        aiRecommendations = matches.map((s) => ({ scheme_id: s.scheme._id.toString(), match_reason: 'Fallback: rule-based match', score: s.score }));
+      } else {
+        const top = scored.slice(0, 3);
+        aiRecommendations = top.map((s) => ({ scheme_id: s.scheme._id.toString(), match_reason: 'Fallback: best-available (no strict match)', score: s.score }));
+      }
+    }
+
+    const final = aiRecommendations.map((rec) => {
+      const found = allSchemes.find((s) => s._id.toString() === (rec.scheme_id || rec.id));
+      return { ...rec, scheme: found || null };
     });
 
-    res.json(finalOutput);
+    res.json(final);
+
   } catch (err) {
     console.error("AI Recommendation Error:", err);
-    res.status(500).json({ message: "Server error in AI recommendations" });
+    res.status(500).json({
+      message: "Server error in AI recommendations",
+      error: err.message,
+    });
   }
 };

@@ -1,18 +1,16 @@
 // backend/src/routes/schemeRoutes.js
-const express = require("express");
+import express from 'express';
+import { createScheme, getAllSchemes, recommendSchemes } from '../controllers/schemeController.js';
+import { protect } from '../middleware/authMiddleware.js';
+
 const router = express.Router();
-const {
-  createScheme,
-  getAllSchemes,
-  recommendSchemes,
-} = require("../controllers/schemeController");
-const { protect } = require("../middleware/authMiddleware");
 
 // (optional) protect creation for admin later
-router.post("/", protect, createScheme);
-router.get("/", getAllSchemes);
+router.post('/', protect, createScheme);
+
+router.get('/', getAllSchemes);
 
 // POST for recommendation with profile body
-router.post("/recommend", recommendSchemes);
+router.post('/recommend', recommendSchemes);
 
-module.exports = router;
+export default router;
